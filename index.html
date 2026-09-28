@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>直角三角形の面積</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            overscroll-behavior: none;
+        }
+
+        .btn-action {
+            transition: transform 0.15s ease-out, background-color 0.15s ease, box-shadow 0.15s ease;
+            touch-action: manipulation;
+        }
+        .btn-action:active {
+            transform: scale(0.94);
+        }
+
+        .piece-draggable {
+            cursor: grab;
+            transition: filter 0.15s ease;
+            touch-action: none;
+        }
+        .piece-draggable:active {
+            cursor: grabbing;
+            filter: drop-shadow(0 8px 16px rgba(37,99,235,0.25));
+        }
+
+        /* テキスト要素のホバー＆ドラッグスタイル */
+        .draggable-text {
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .draggable-text:active {
+            cursor: grabbing;
+        }
+        .draggable-text rect {
+            fill: transparent;
+            stroke: transparent;
+        }
+        .draggable-text:hover rect {
+            stroke: #3b82f6;
+            fill: rgba(59, 130, 246, 0.15);
+        }
+
+        canvas, svg, g, path, polygon {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden bg-slate-100 relative select-none touch-none">
+
+    <!-- 全画面共通コントロールツールバー -->
+    <header class="absolute top-3 left-3 right-3 z-30 flex items-center justify-between gap-2 bg-white/95 backdrop-blur-md p-2 px-4 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto overflow-x-auto whitespace-nowrap touch-none">
+        <!-- 左側：基本ツール -->
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-screenshot" title="スクリーンショット保存" class="h-9 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center justify-center btn-action shrink-0">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+            <button id="btn-undo" class="h-9 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-1.5 btn-action shrink-0">
+                <i class="fa-solid fa-rotate-left"></i> 1つもどす
+            </button>
+            <button id="btn-reset" class="h-9 px-3 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-1.5 btn-action shrink-0">
+                <i class="fa-solid fa-power-off"></i> 初めから
+            </button>
+        </div>
+
+        <div class="h-5 w-px bg-slate-300 mx-1 shrink-0"></div>
+
+        <!-- 右側：モード切替 (つけたす / 切る / 動かす / 回す / PCで書く / ペンで書く) -->
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-mode-add" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-square-plus"></i> つけたす
+            </button>
+            <button id="btn-mode-cut" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-scissors"></i> 切る
+            </button>
+            <button id="btn-mode-select" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-hand"></i> 動かす
+            </button>
+            <button id="btn-mode-rotate" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-rotate"></i> 回す
+            </button>
+            <button id="btn-mode-text" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-keyboard"></i> PCで書く
+            </button>
+            <button id="btn-mode-pen" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-pen"></i> ペンで書く
+            </button>
+
+            <!-- ペンツールカラー＆消しゴム -->
+            <div id="pen-controls" class="flex items-center gap-1.5 transition-opacity ml-1 shrink-0">
+                <button id="pen-black" title="黒ペン" class="pen-btn w-7 h-7 rounded-full bg-slate-800 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-slate-800"></button>
+                <button id="pen-red" title="赤ペン" class="pen-btn w-7 h-7 rounded-full bg-rose-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-transparent"></button>
+                <button id="pen-blue" title="青ペン" class="pen-btn w-7 h-7 rounded-full bg-blue-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-transparent"></button>
+                <button id="pen-eraser" title="消しゴム" class="h-8 px-2.5 bg-white hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition flex items-center gap-1 border border-slate-300 shrink-0">
+                    <i class="fa-solid fa-eraser"></i>
+                </button>
+                <button id="btn-clear-memo" title="メモを全消去" class="h-8 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-sm transition flex items-center gap-1 btn-action shrink-0">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 全画面メインエリア -->
+    <main id="capture-area" class="w-full h-full relative overflow-hidden bg-white touch-none">
+        <svg id="canvas-svg" class="w-full h-full absolute inset-0 touch-none select-none z-10" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet">
+            <g id="grid-layer"></g>
+            <g id="dashed-background-layer"></g>
+            <g id="pieces-layer"></g>
+            <g id="text-layer"></g>
+
+            <path id="user-cut-line" d="" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" fill="none" pointer-events="none" opacity="0.95" />
+            <path id="user-add-line" d="" stroke="#dc2626" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" fill="none" pointer-events="none" opacity="0.95" />
+            <circle id="cut-start-indicator" cx="-100" cy="-100" r="5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" pointer-events="none" opacity="0" />
+            <circle id="cut-end-indicator" cx="-100" cy="-100" r="5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" pointer-events="none" opacity="0" />
+        </svg>
+
+        <canvas id="memo-canvas" class="w-full h-full absolute inset-0 z-20 pointer-events-none cursor-crosshair touch-none"></canvas>
+
+        <!-- インラインテキストエディタ（初期は hidden） -->
+        <textarea id="text-editor" 
+          class="absolute hidden z-30 bg-white border-2 border-dashed border-blue-500 rounded-lg outline-none font-bold text-slate-900 p-2 shadow-lg transition-none resize-none overflow-hidden" 
+          style="font-family: 'Zen Maru Gothic', sans-serif; box-sizing: border-box; font-size: 38px; line-height: 48px;" placeholder="文字を入力..."></textarea>
+    </main>
+
+    <script>
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.closest('#capture-area') || e.target.closest('header')) {
+                if (e.cancelable) e.preventDefault();
+            }
+        }, { passive: false });
+
+        const svg = document.getElementById('canvas-svg');
+        const gridLayer = document.getElementById('grid-layer');
+        const dashedBgLayer = document.getElementById('dashed-background-layer');
+        const piecesLayer = document.getElementById('pieces-layer');
+        const textLayer = document.getElementById('text-layer');
+        const textEditor = document.getElementById('text-editor');
+        const userCutLine = document.getElementById('user-cut-line');
+        const userAddLine = document.getElementById('user-add-line');
+        const cutStartIndicator = document.getElementById('cut-start-indicator');
+        const cutEndIndicator = document.getElementById('cut-end-indicator');
+        const memoCanvas = document.getElementById('memo-canvas');
+        const memoCtx = memoCanvas.getContext('2d');
+
+        const state = {
+            showGrid: true,
+            activeMode: 'add',
+            pieces: [],
+            textElements: [],
+            editingTextId: null,
+            selectedPieceIndex: null,
+            draggedPieceIndex: null,
+            dragStartPos: { x: 0, y: 0 },
+            dragPieceStartOffset: { x: 0, y: 0 },
+            isDrawingCut: false,
+            cutStart: null,
+            cutCurrent: null,
+            isDrawingAdd: false,
+            addStart: null,
+            addCurrent: null,
+            addFirstAxis: null,
+            penColor: '#1e293b',
+            penSize: 3,
+            isErasing: false
+        };
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'tap') {
+                    osc.frequency.setValueAtTime(400, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now); osc.stop(now + 0.05);
+                } else if (type === 'snap') {
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
+                } else if (type === 'cut') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
+                } else if (type === 'shutter') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(1000, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                }
+            } catch (e) {}
+        }
+
+        const SCALE = 48;
+        const ORIGIN = { x: 96, y: 560 };
+
+        function cmToSvg(pt) {
+            return { x: ORIGIN.x + pt.x * SCALE, y: ORIGIN.y - pt.y * SCALE };
+        }
+
+        function svgToCm(pt) {
+            return { x: (pt.x - ORIGIN.x) / SCALE, y: (ORIGIN.y - pt.y) / SCALE };
+        }
+
+        function snapToGridPoint(svgPt) {
+            const cmPt = svgToCm(svgPt);
+            const roundedCm = { x: Math.round(cmPt.x), y: Math.round(cmPt.y) };
+            return cmToSvg(roundedCm);
+        }
+
+        function getSvgCoords(e) {
+            const pt = svg.createSVGPoint();
+            let clientX = e.clientX, clientY = e.clientY;
+            if ((clientX === undefined || clientX === null) && e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+            } else if ((clientX === undefined || clientX === null) && e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY;
+            }
+            pt.x = (clientX !== undefined && clientX !== null) ? clientX : 0;
+            pt.y = (clientY !== undefined && clientY !== null) ? clientY : 0;
+            const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+            return { x: svgP.x, y: svgP.y };
+        }
+
+        function getPolygonCentroid(pts) {
+            let cx = 0, cy = 0;
+            pts.forEach(p => { cx += p.x; cy += p.y; });
+            return { x: cx / pts.length, y: cy / pts.length };
+        }
+
+        function rotatePoint(pt, center, angleDeg) {
+            const rad = (angleDeg * Math.PI) / 180;
+            const cos = Math.cos(rad), sin = Math.sin(rad);
+            const dx = pt.x - center.x, dy = pt.y - center.y;
+            return {
+                x: center.x + (dx * cos - dy * sin),
+                y: center.y + (dx * sin + dy * cos)
+            };
+        }
+
+        function getWorldVertices(piece) {
+            const center = getPolygonCentroid(piece.vertices);
+            return piece.vertices.map(v => {
+                const rot = rotatePoint(v, center, piece.rotation);
+                return { x: rot.x + piece.x, y: rot.y + piece.y };
+            });
+        }
+
+        function isPointInPolygon(pt, vertices) {
+            let inside = false;
+            for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+                const xi = vertices[i].x, yi = vertices[i].y;
+                const xj = vertices[j].x, yj = vertices[j].y;
+                const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+                    (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function isTextOverlappingPieces(item) {
+            const lines = (item.text || '').split('\n');
+            const fontSize = 38;
+            const lineHeight = 48;
+            let maxLen = 1;
+            lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+
+            const w = Math.max(90, maxLen * fontSize * 0.95 + 20);
+            const h = Math.max(48, lines.length * lineHeight + 12);
+
+            const rectPts = [
+                { x: item.x, y: item.y },
+                { x: item.x + w, y: item.y },
+                { x: item.x, y: item.y + h },
+                { x: item.x + w, y: item.y + h },
+                { x: item.x + w / 2, y: item.y + h / 2 }
+            ];
+
+            for (const piece of state.pieces) {
+                const worldVs = getWorldVertices(piece);
+
+                // テキスト枠の主要点が図形内にあるかチェック
+                for (const pt of rectPts) {
+                    if (isPointInPolygon(pt, worldVs)) return true;
+                }
+
+                // 図形の頂点がテキスト枠内にあるかチェック
+                for (const v of worldVs) {
+                    if (v.x >= item.x && v.x <= item.x + w && v.y >= item.y && v.y <= item.y + h) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function findPieceIndexAtPoint(svgPt) {
+            for (let i = state.pieces.length - 1; i >= 0; i--) {
+                const worldVs = getWorldVertices(state.pieces[i]);
+                if (isPointInPolygon(svgPt, worldVs)) return i;
+            }
+            return -1;
+        }
+
+        function render() {
+            piecesLayer.innerHTML = '';
+            state.pieces.forEach((piece, index) => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.setAttribute('id', `piece-group-${index}`);
+                group.setAttribute('class', 'piece-draggable');
+
+                const center = getPolygonCentroid(piece.vertices);
+                group.setAttribute('transform', `translate(${piece.x}, ${piece.y}) rotate(${piece.rotation}, ${center.x}, ${center.y})`);
+
+                const pointsStr = piece.vertices.map(pt => `${pt.x},${pt.y}`).join(' ');
+                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                poly.setAttribute('points', pointsStr);
+                poly.setAttribute('fill', '#fbcfe8');
+                poly.setAttribute('fill-opacity', '0.85');
+                poly.setAttribute('stroke', index === state.selectedPieceIndex ? '#2563eb' : '#000000');
+                poly.setAttribute('stroke-width', index === state.selectedPieceIndex ? '3.5' : '2.5');
+                poly.setAttribute('stroke-linejoin', 'round');
+
+                group.appendChild(poly);
+
+                if (state.activeMode === 'rotate') {
+                    const rotateHandleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    
+                    const handleBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    handleBg.setAttribute('cx', center.x);
+                    handleBg.setAttribute('cy', center.y);
+                    handleBg.setAttribute('r', '20');
+                    handleBg.setAttribute('fill', '#2563eb');
+                    handleBg.setAttribute('stroke', '#ffffff');
+                    handleBg.setAttribute('stroke-width', '2.5');
+                    handleBg.setAttribute('class', 'shadow-md');
+
+                    const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    iconText.setAttribute('x', center.x);
+                    iconText.setAttribute('y', center.y + 6);
+                    iconText.setAttribute('text-anchor', 'middle');
+                    iconText.setAttribute('font-family', 'FontAwesome');
+                    iconText.setAttribute('font-size', '18');
+                    iconText.setAttribute('fill', '#ffffff');
+                    iconText.textContent = '\uf01e';
+
+                    rotateHandleGroup.appendChild(handleBg);
+                    rotateHandleGroup.appendChild(iconText);
+                    group.appendChild(rotateHandleGroup);
+                }
+
+                piecesLayer.appendChild(group);
+            });
+        }
+
+        function updateSelectedHighlight(pieceIdx) {
+            state.pieces.forEach((_, idx) => {
+                const group = document.getElementById(`piece-group-${idx}`);
+                if (!group) return;
+                const poly = group.querySelector('polygon');
+                if (poly) {
+                    poly.setAttribute('stroke', idx === pieceIdx ? '#2563eb' : '#000000');
+                    poly.setAttribute('stroke-width', idx === pieceIdx ? '3.5' : '2.5');
+                }
+            });
+        }
+
+        function lineIntersection(p1, p2, p3, p4) {
+            const d = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+            if (Math.abs(d) < 1e-6) return null;
+            const ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / d;
+            const ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / d;
+            if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                return {
+                    x: p1.x + ua * (p2.x - p1.x),
+                    y: p1.y + ua * (p2.y - p1.y),
+                    param: ua
+                };
+            }
+            return null;
+        }
+
+        function processCut(cutStart, cutEnd) {
+            saveHistory();
+            let pieceSplit = false;
+            let newPieces = [];
+
+            state.pieces.forEach((piece) => {
+                if (pieceSplit) {
+                    newPieces.push(piece);
+                    return;
+                }
+
+                const worldVs = getWorldVertices(piece);
+                const intersections = [];
+
+                for (let i = 0; i < worldVs.length; i++) {
+                    const nextIdx = (i + 1) % worldVs.length;
+                    const hit = lineIntersection(cutStart, cutEnd, worldVs[i], worldVs[nextIdx]);
+                    if (hit) {
+                        intersections.push({ edgeIdx: i, pt: hit });
+                    }
+                }
+
+                if (intersections.length === 2) {
+                    pieceSplit = true;
+
+                    const pA = intersections[0].pt;
+                    const pB = intersections[1].pt;
+                    const i1 = intersections[0].edgeIdx;
+                    const i2 = intersections[1].edgeIdx;
+
+                    const poly1 = [], poly2 = [];
+
+                    poly1.push({ x: pA.x, y: pA.y });
+                    poly1.push({ x: pB.x, y: pB.y });
+                    let curr = (i2 + 1) % worldVs.length;
+                    while (curr !== (i1 + 1) % worldVs.length) {
+                        poly1.push(worldVs[curr]);
+                        curr = (curr + 1) % worldVs.length;
+                    }
+
+                    poly2.push({ x: pB.x, y: pB.y });
+                    poly2.push({ x: pA.x, y: pA.y });
+                    curr = (i1 + 1) % worldVs.length;
+                    while (curr !== (i2 + 1) % worldVs.length) {
+                        poly2.push(worldVs[curr]);
+                        curr = (curr + 1) % worldVs.length;
+                    }
+
+                    newPieces.push({
+                        id: `piece-${Date.now()}-1`,
+                        vertices: poly1,
+                        labels: [],
+                        x: 0,
+                        y: 0,
+                        rotation: 0
+                    });
+
+                    newPieces.push({
+                        id: `piece-${Date.now()}-2`,
+                        vertices: poly2,
+                        labels: [],
+                        x: 0,
+                        y: 0,
+                        rotation: 0
+                    });
+                } else {
+                    newPieces.push(piece);
+                }
+            });
+
+            if (pieceSplit) {
+                state.pieces = newPieces;
+                state.selectedPieceIndex = null;
+                render();
+            }
+        }
+
+        function processAddTriangle(addStart, addEnd) {
+            const startCm = svgToCm(addStart);
+            const endCm = svgToCm(addEnd);
+
+            const cornerCm = (state.addFirstAxis === 'y')
+                ? { x: startCm.x, y: endCm.y }
+                : { x: endCm.x, y: startCm.y };
+
+            let added = false;
+
+            state.pieces.forEach(piece => {
+                if (added) return;
+                const worldVs = getWorldVertices(piece);
+                if (worldVs.length !== 3) return;
+
+                const vsCm = worldVs.map(v => svgToCm(v));
+
+                for (let i = 0; i < 3; i++) {
+                    const b = vsCm[i];
+                    const a = vsCm[(i + 1) % 3];
+                    const c = vsCm[(i + 2) % 3];
+
+                    const dot = (a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y);
+                    if (Math.abs(dot) < 0.1) {
+                        const d = { x: a.x + c.x - b.x, y: a.y + c.y - b.y };
+
+                        const distS_A = Math.hypot(startCm.x - a.x, startCm.y - a.y);
+                        const distS_C = Math.hypot(startCm.x - c.x, startCm.y - c.y);
+                        const distE_A = Math.hypot(endCm.x - a.x, endCm.y - a.y);
+                        const distE_C = Math.hypot(endCm.x - c.x, endCm.y - c.y);
+                        const distCorner_D = Math.hypot(cornerCm.x - d.x, cornerCm.y - d.y);
+
+                        const tol = 1.3;
+                        if (distCorner_D < tol &&
+                            ((distS_A < tol && distE_C < tol) || (distS_C < tol && distE_A < tol))) {
+
+                            saveHistory();
+                            const newSvgVertices = [a, d, c].map(pt => cmToSvg(pt));
+                            state.pieces.push({
+                                id: `piece-${Date.now()}`,
+                                vertices: newSvgVertices,
+                                labels: [],
+                                x: 0,
+                                y: 0,
+                                rotation: 0
+                            });
+
+                            added = true;
+                            render();
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        const BASE_TRIANGLE = [
+            { x: 2, y: 4 },
+            { x: 8, y: 4 },
+            { x: 8, y: 8 }
+        ];
+
+        let historyStack = [];
+
+        function saveHistory() {
+            if (historyStack.length > 20) historyStack.shift();
+            historyStack.push(JSON.parse(JSON.stringify(state.pieces)));
+        }
+
+        function renderGrid() {
+            gridLayer.innerHTML = '';
+            if (!state.showGrid) return;
+
+            const minCmX = -1, maxCmX = 26;
+            const minCmY = -2, maxCmY = 10;
+
+            for (let x = minCmX; x <= maxCmX; x++) {
+                const pt1 = cmToSvg({ x: x, y: minCmY });
+                const pt2 = cmToSvg({ x: x, y: maxCmY });
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', pt1.x); line.setAttribute('y1', pt1.y);
+                line.setAttribute('x2', pt2.x); line.setAttribute('y2', pt2.y);
+                line.setAttribute('stroke', '#cbd5e1'); line.setAttribute('stroke-width', '1');
+                line.setAttribute('pointer-events', 'none');
+                gridLayer.appendChild(line);
+            }
+
+            for (let y = minCmY; y <= maxCmY; y++) {
+                const pt1 = cmToSvg({ x: minCmX, y: y });
+                const pt2 = cmToSvg({ x: maxCmX, y: y });
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', pt1.x); line.setAttribute('y1', pt1.y);
+                line.setAttribute('x2', pt2.x); line.setAttribute('y2', pt2.y);
+                line.setAttribute('stroke', '#cbd5e1'); line.setAttribute('stroke-width', '1');
+                line.setAttribute('pointer-events', 'none');
+                gridLayer.appendChild(line);
+            }
+        }
+
+        function renderDashedBackground() {
+            dashedBgLayer.innerHTML = '';
+            const pointsStr = BASE_TRIANGLE.map(pt => {
+                const svgPt = cmToSvg(pt);
+                return `${svgPt.x},${svgPt.y}`;
+            }).join(' ');
+
+            const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            poly.setAttribute('points', pointsStr);
+            poly.setAttribute('fill', 'none');
+            poly.setAttribute('stroke', '#000000');
+            poly.setAttribute('stroke-width', '2.5');
+            poly.setAttribute('stroke-dasharray', '6,4');
+            poly.setAttribute('pointer-events', 'none');
+            dashedBgLayer.appendChild(poly);
+        }
+
+        function resetToInitialShape() {
+            historyStack = [];
+            finishTextEditing();
+            state.pieces = [{
+                id: 'piece-0',
+                vertices: BASE_TRIANGLE.map(pt => cmToSvg(pt)),
+                labels: [],
+                x: 0,
+                y: 0,
+                rotation: 0
+            }];
+            state.textElements = [];
+            state.selectedPieceIndex = null;
+            state.penColor = '#1e293b';
+            state.isErasing = false;
+            if (typeof updatePenUI === 'function') updatePenUI();
+            render();
+            renderTextLayer();
+            setMode('add');
+        }
+
+        function positionTextEditor(svgX, svgY) {
+            const pt = svg.createSVGPoint();
+            pt.x = svgX;
+            pt.y = svgY;
+            const matrix = svg.getScreenCTM();
+            if (!matrix) return;
+
+            const screenPt = pt.matrixTransform(matrix);
+            const container = document.getElementById('capture-area');
+            const rect = container.getBoundingClientRect();
+
+            const left = screenPt.x - rect.left;
+            const top = screenPt.y - rect.top;
+            const scale = matrix.a;
+
+            const GRID_SIZE = 48;
+            textEditor.style.left = `${left}px`;
+            textEditor.style.top = `${top}px`;
+            textEditor.style.fontSize = `${38 * scale}px`;
+            textEditor.style.lineHeight = `${48 * scale}px`;
+            textEditor.style.padding = `${2 * scale}px ${6 * scale}px`;
+
+            autoResizeTextEditor(scale);
+        }
+
+        function autoResizeTextEditor(customScale) {
+            const matrix = svg.getScreenCTM();
+            const scale = customScale || (matrix ? matrix.a : 1);
+            const lines = textEditor.value.split('\n');
+            let maxLen = 1;
+            lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+
+            const width = Math.max(160 * scale, (maxLen * 38 + 24) * scale);
+            const height = Math.max(58 * scale, (lines.length * 48 + 16) * scale);
+
+            textEditor.style.width = `${width}px`;
+            textEditor.style.height = `${height}px`;
+        }
+
+        function startTextEditing(textObj) {
+            state.editingTextId = textObj.id;
+            textEditor.value = textObj.text || '';
+            positionTextEditor(textObj.x, textObj.y);
+            textEditor.classList.remove('hidden');
+            renderTextLayer();
+
+            setTimeout(() => {
+                textEditor.focus();
+                textEditor.setSelectionRange(textEditor.value.length, textEditor.value.length);
+            }, 50);
+        }
+
+        function finishTextEditing() {
+            if (!state.editingTextId) return;
+
+            const textObj = state.textElements.find(t => t.id === state.editingTextId);
+            const val = textEditor.value.trim();
+
+            if (textObj) {
+                if (val === '') {
+                    state.textElements = state.textElements.filter(t => t.id !== state.editingTextId);
+                } else {
+                    textObj.text = textEditor.value;
+                }
+            }
+
+            state.editingTextId = null;
+            textEditor.classList.add('hidden');
+            textEditor.value = '';
+            renderTextLayer();
+        }
+
+        textEditor.addEventListener('input', () => autoResizeTextEditor());
+        textEditor.addEventListener('blur', () => finishTextEditing());
+        textEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') finishTextEditing();
+        });
+
+        function renderTextLayer() {
+            textLayer.innerHTML = '';
+
+            state.textElements.forEach((item) => {
+                if (item.id === state.editingTextId) return;
+
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.setAttribute('class', 'draggable-text');
+                group.setAttribute('data-id', item.id);
+
+                const lines = (item.text || '').split('\n');
+                const fontSize = 38;
+                const lineHeight = 48;
+
+                let maxLen = 1;
+                lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+
+                const width = Math.max(90, maxLen * fontSize * 0.95 + 20);
+                const height = Math.max(48, lines.length * lineHeight + 12);
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', item.x);
+                rect.setAttribute('y', item.y);
+                rect.setAttribute('width', width);
+                rect.setAttribute('height', height);
+                rect.setAttribute('fill', 'transparent');
+                rect.setAttribute('stroke', 'transparent');
+                rect.setAttribute('stroke-dasharray', '4,4');
+                rect.setAttribute('rx', '8');
+                rect.setAttribute('pointer-events', 'all');
+                group.appendChild(rect);
+
+                const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textEl.setAttribute('x', item.x + 10);
+                textEl.setAttribute('y', item.y + fontSize + 2);
+                textEl.setAttribute('font-size', fontSize);
+                textEl.setAttribute('font-weight', 'bold');
+                textEl.setAttribute('fill', '#0f172a');
+                textEl.setAttribute('font-family', "'Zen Maru Gothic', sans-serif");
+                textEl.setAttribute('pointer-events', 'none');
+
+                lines.forEach((lineStr, lineIdx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.setAttribute('x', item.x + 10);
+                    if (lineIdx > 0) tspan.setAttribute('dy', lineHeight);
+                    tspan.textContent = lineStr || ' ';
+                    textEl.appendChild(tspan);
+                });
+
+                group.appendChild(textEl);
+
+                group.addEventListener('pointerdown', (e) => {
+                    if (e.cancelable) e.preventDefault();
+                    e.stopPropagation();
+
+                    const start = getSvgCoords(e);
+                    const initX = item.x;
+                    const initY = item.y;
+                    let isMoved = false;
+
+                    const onPointerMove = (moveEvt) => {
+                        const curr = getSvgCoords(moveEvt);
+                        const dx = curr.x - start.x;
+                        const dy = curr.y - start.y;
+
+                        if (Math.hypot(dx, dy) > 3) isMoved = true;
+
+                        if (isMoved) {
+                            item.x = initX + dx;
+                            item.y = initY + dy;
+
+                            rect.setAttribute('x', item.x);
+                            rect.setAttribute('y', item.y);
+                            textEl.setAttribute('x', item.x + 10);
+                            textEl.setAttribute('y', item.y + fontSize + 2);
+                            textEl.querySelectorAll('tspan').forEach(ts => ts.setAttribute('x', item.x + 10));
+                        }
+                    };
+
+                    const onPointerUp = () => {
+                        window.removeEventListener('pointermove', onPointerMove);
+                        window.removeEventListener('pointerup', onPointerUp);
+
+                        if (!isMoved) {
+                            setMode('text');
+                            finishTextEditing();
+                            startTextEditing(item);
+                        } else {
+                            // 図形と重なっていない場合のみグリッドに吸着
+                            if (!isTextOverlappingPieces(item)) {
+                                const snapped = snapToGridPoint({ x: item.x, y: item.y });
+                                item.x = snapped.x;
+                                item.y = snapped.y;
+                            }
+                            renderTextLayer();
+                        }
+                    };
+
+                    window.addEventListener('pointermove', onPointerMove);
+                    window.addEventListener('pointerup', onPointerUp);
+                });
+
+                textLayer.appendChild(group);
+            });
+        }
+
+        const handleStartCutOrAdd = (e) => {
+            const coords = getSvgCoords(e);
+
+            if (state.activeMode === 'text') {
+                if (e.target && e.target.id === 'text-editor') return;
+                if (e.target && e.target.closest('.draggable-text')) return;
+
+                finishTextEditing();
+
+                const snappedPt = snapToGridPoint(coords);
+                const newTextObj = {
+                    id: `text-${Date.now()}`,
+                    x: snappedPt.x,
+                    y: snappedPt.y,
+                    text: ''
+                };
+                state.textElements.push(newTextObj);
+                startTextEditing(newTextObj);
+                return;
+            }
+
+            if (state.activeMode === 'select') {
+                if (e.cancelable) e.preventDefault();
+                const pieceIdx = findPieceIndexAtPoint(coords);
+
+                if (pieceIdx !== -1) {
+                    const piece = state.pieces[pieceIdx];
+                    saveHistory();
+                    state.selectedPieceIndex = pieceIdx;
+                    state.draggedPieceIndex = pieceIdx;
+                    state.dragStartPos = coords;
+                    state.dragPieceStartOffset = { x: piece.x, y: piece.y };
+
+                    updateSelectedHighlight(pieceIdx);
+
+                    if (e.target && e.target.setPointerCapture && e.pointerId !== undefined) {
+                        try { e.target.setPointerCapture(e.pointerId); } catch(err) {}
+                    }
+                }
+                return;
+            }
+
+            if (state.activeMode === 'rotate') {
+                if (e.cancelable) e.preventDefault();
+                const pieceIdx = findPieceIndexAtPoint(coords);
+                if (pieceIdx !== -1) {
+                    saveHistory();
+                    state.pieces[pieceIdx].rotation = (state.pieces[pieceIdx].rotation + 180) % 360;
+                    render();
+                }
+                return;
+            }
+
+            if (state.activeMode === 'cut') {
+                if (e.cancelable) e.preventDefault();
+                const snappedStart = snapToGridPoint(coords);
+
+                state.isDrawingCut = true;
+                state.cutStart = snappedStart;
+                state.cutCurrent = snappedStart;
+
+                cutStartIndicator.setAttribute('cx', snappedStart.x);
+                cutStartIndicator.setAttribute('cy', snappedStart.y);
+                cutStartIndicator.setAttribute('opacity', '1');
+
+                cutEndIndicator.setAttribute('cx', snappedStart.x);
+                cutEndIndicator.setAttribute('cy', snappedStart.y);
+                cutEndIndicator.setAttribute('opacity', '1');
+            } else if (state.activeMode === 'add') {
+                if (e.cancelable) e.preventDefault();
+                const snappedStart = snapToGridPoint(coords);
+
+                state.isDrawingAdd = true;
+                state.addStart = snappedStart;
+                state.addCurrent = snappedStart;
+                state.addFirstAxis = null;
+
+                cutStartIndicator.setAttribute('cx', snappedStart.x);
+                cutStartIndicator.setAttribute('cy', snappedStart.y);
+                cutStartIndicator.setAttribute('opacity', '1');
+
+                cutEndIndicator.setAttribute('cx', snappedStart.x);
+                cutEndIndicator.setAttribute('cy', snappedStart.y);
+                cutEndIndicator.setAttribute('opacity', '1');
+            }
+        };
+
+        svg.addEventListener('pointerdown', handleStartCutOrAdd);
+
+        const handleMove = (e) => {
+            if (state.draggedPieceIndex !== null) {
+                if (e.cancelable) e.preventDefault();
+                const piece = state.pieces[state.draggedPieceIndex];
+                if (!piece) return;
+
+                const groupEl = document.getElementById(`piece-group-${state.draggedPieceIndex}`);
+
+                if (state.activeMode === 'select') {
+                    const current = getSvgCoords(e);
+                    const dx = current.x - state.dragStartPos.x;
+                    const dy = current.y - state.dragStartPos.y;
+                    piece.x = state.dragPieceStartOffset.x + dx;
+                    piece.y = state.dragPieceStartOffset.y + dy;
+
+                    if (groupEl) {
+                        const center = getPolygonCentroid(piece.vertices);
+                        groupEl.setAttribute('transform', `translate(${piece.x}, ${piece.y}) rotate(${piece.rotation}, ${center.x}, ${center.y})`);
+                    }
+                }
+                return;
+            }
+
+            if (state.isDrawingCut && state.activeMode === 'cut') {
+                if (e.cancelable) e.preventDefault();
+                const coords = getSvgCoords(e);
+                const snappedEnd = snapToGridPoint(coords);
+                state.cutCurrent = snappedEnd;
+
+                userCutLine.setAttribute('d', `M ${state.cutStart.x} ${state.cutStart.y} L ${snappedEnd.x} ${snappedEnd.y}`);
+                cutEndIndicator.setAttribute('cx', snappedEnd.x);
+                cutEndIndicator.setAttribute('cy', snappedEnd.y);
+            } else if (state.isDrawingAdd && state.activeMode === 'add') {
+                if (e.cancelable) e.preventDefault();
+                const coords = getSvgCoords(e);
+                const snappedEnd = snapToGridPoint(coords);
+                state.addCurrent = snappedEnd;
+
+                const cornerX = { x: snappedEnd.x, y: state.addStart.y };
+                const cornerY = { x: state.addStart.x, y: snappedEnd.y };
+
+                const distToX = Math.hypot(coords.x - cornerX.x, coords.y - cornerX.y);
+                const distToY = Math.hypot(coords.x - cornerY.x, coords.y - cornerY.y);
+
+                if (distToX < 45) {
+                    state.addFirstAxis = 'x';
+                } else if (distToY < 45) {
+                    state.addFirstAxis = 'y';
+                } else if (!state.addFirstAxis) {
+                    const dx = Math.abs(coords.x - state.addStart.x);
+                    const dy = Math.abs(coords.y - state.addStart.y);
+                    if (dx > 8 || dy > 8) {
+                        state.addFirstAxis = (dx >= dy) ? 'x' : 'y';
+                    }
+                }
+
+                let pathD = '';
+                if (state.addFirstAxis === 'y') {
+                    pathD = `M ${state.addStart.x} ${state.addStart.y} L ${state.addStart.x} ${snappedEnd.y} L ${snappedEnd.x} ${snappedEnd.y}`;
+                } else {
+                    pathD = `M ${state.addStart.x} ${state.addStart.y} L ${snappedEnd.x} ${state.addStart.y} L ${snappedEnd.x} ${snappedEnd.y}`;
+                }
+
+                userAddLine.setAttribute('d', pathD);
+                cutEndIndicator.setAttribute('cx', snappedEnd.x);
+                cutEndIndicator.setAttribute('cy', snappedEnd.y);
+            }
+        };
+
+        window.addEventListener('pointermove', handleMove);
+
+        const handleEnd = (e) => {
+            if (state.draggedPieceIndex !== null) {
+                const piece = state.pieces[state.draggedPieceIndex];
+                if (piece && state.activeMode === 'select') {
+                    const center = getPolygonCentroid(piece.vertices);
+                    const firstV = piece.vertices[0];
+                    const rotatedFirst = rotatePoint(firstV, center, piece.rotation);
+                    const worldFirst = { x: rotatedFirst.x + piece.x, y: rotatedFirst.y + piece.y };
+                    const snappedWorld = snapToGridPoint(worldFirst);
+
+                    piece.x += (snappedWorld.x - worldFirst.x);
+                    piece.y += (snappedWorld.y - worldFirst.y);
+                    render();
+                }
+                state.draggedPieceIndex = null;
+            }
+
+            if (state.isDrawingCut && state.activeMode === 'cut') {
+                state.isDrawingCut = false;
+                userCutLine.setAttribute('d', '');
+                cutStartIndicator.setAttribute('opacity', '0');
+                cutEndIndicator.setAttribute('opacity', '0');
+
+                if (state.cutStart && state.cutCurrent) {
+                    const dx = state.cutCurrent.x - state.cutStart.x;
+                    const dy = state.cutCurrent.y - state.cutStart.y;
+                    if (Math.hypot(dx, dy) > 10) {
+                        processCut(state.cutStart, state.cutCurrent);
+                    }
+                }
+            } else if (state.isDrawingAdd && state.activeMode === 'add') {
+                state.isDrawingAdd = false;
+                userAddLine.setAttribute('d', '');
+                cutStartIndicator.setAttribute('opacity', '0');
+                cutEndIndicator.setAttribute('opacity', '0');
+
+                if (state.addStart && state.addCurrent) {
+                    const dx = state.addCurrent.x - state.addStart.x;
+                    const dy = state.addCurrent.y - state.addStart.y;
+                    if (Math.hypot(dx, dy) > 10) {
+                        processAddTriangle(state.addStart, state.addCurrent);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('pointerup', handleEnd);
+        window.addEventListener('pointercancel', handleEnd);
+
+        let isPenDrawing = false;
+        let lastPenPos = { x: 0, y: 0 };
+
+        function resizeCanvas() {
+            memoCanvas.width = memoCanvas.offsetWidth;
+            memoCanvas.height = memoCanvas.offsetHeight;
+        }
+
+        function getCanvasCoords(e) {
+            const rect = memoCanvas.getBoundingClientRect();
+            let clientX = e.clientX, clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY;
+            }
+            return {
+                x: (clientX - rect.left) * (memoCanvas.width / rect.width),
+                y: (clientY - rect.top) * (memoCanvas.height / rect.height)
+            };
+        }
+
+        memoCanvas.addEventListener('pointerdown', (e) => {
+            if (state.activeMode !== 'pen') return;
+            isPenDrawing = true;
+            lastPenPos = getCanvasCoords(e);
+        });
+
+        memoCanvas.addEventListener('pointermove', (e) => {
+            if (!isPenDrawing || state.activeMode !== 'pen') return;
+            const currentPos = getCanvasCoords(e);
+            memoCtx.beginPath();
+            memoCtx.moveTo(lastPenPos.x, lastPenPos.y);
+            memoCtx.lineTo(currentPos.x, currentPos.y);
+            memoCtx.lineCap = 'round';
+            memoCtx.lineJoin = 'round';
+
+            if (state.isErasing) {
+                memoCtx.globalCompositeOperation = 'destination-out';
+                memoCtx.lineWidth = 20;
+            } else {
+                memoCtx.globalCompositeOperation = 'source-over';
+                memoCtx.strokeStyle = state.penColor;
+                memoCtx.lineWidth = state.penSize;
+            }
+            memoCtx.stroke();
+            lastPenPos = currentPos;
+        });
+
+        const stopPen = () => { isPenDrawing = false; };
+        window.addEventListener('pointerup', stopPen);
+        window.addEventListener('pointercancel', stopPen);
+
+        function setMode(mode) {
+            if (state.activeMode === 'text' && mode !== 'text') {
+                finishTextEditing();
+            }
+
+            state.activeMode = mode;
+            const modeBtns = {
+                add: document.getElementById('btn-mode-add'),
+                cut: document.getElementById('btn-mode-cut'),
+                select: document.getElementById('btn-mode-select'),
+                rotate: document.getElementById('btn-mode-rotate'),
+                pen: document.getElementById('btn-mode-pen'),
+                text: document.getElementById('btn-mode-text')
+            };
+
+            Object.keys(modeBtns).forEach(m => {
+                const btn = modeBtns[m];
+                if (!btn) return;
+                if (m === mode) {
+                    btn.className = "h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm btn-action shrink-0";
+                } else {
+                    btn.className = "h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0";
+                }
+            });
+
+            if (mode === 'pen') {
+                memoCanvas.classList.remove('pointer-events-none');
+                memoCanvas.classList.add('pointer-events-auto');
+            } else {
+                memoCanvas.classList.add('pointer-events-none');
+                memoCanvas.classList.remove('pointer-events-auto');
+            }
+            render();
+            renderTextLayer();
+        }
+
+        document.getElementById('btn-screenshot').addEventListener('click', () => {
+            html2canvas(document.getElementById('capture-area')).then(canvas => {
+                const link = document.createElement('a');
+                link.download = '直角三角形の面積.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        });
+
+        document.getElementById('btn-undo').addEventListener('click', () => {
+            if (historyStack.length > 0) {
+                state.pieces = historyStack.pop();
+                state.selectedPieceIndex = null;
+                render();
+            }
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            resetToInitialShape();
+            memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height);
+        });
+
+        document.getElementById('btn-mode-cut').addEventListener('click', () => setMode('cut'));
+        document.getElementById('btn-mode-select').addEventListener('click', () => setMode('select'));
+        document.getElementById('btn-mode-rotate').addEventListener('click', () => setMode('rotate'));
+        document.getElementById('btn-mode-add').addEventListener('click', () => setMode('add'));
+        document.getElementById('btn-mode-pen').addEventListener('click', () => setMode('pen'));
+        document.getElementById('btn-mode-text').addEventListener('click', () => setMode('text'));
+
+        document.getElementById('pen-black').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.penColor = '#1e293b';
+            state.isErasing = false;
+            setMode('pen');
+            updatePenUI();
+        });
+        document.getElementById('pen-red').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.penColor = '#f43f5e';
+            state.isErasing = false;
+            setMode('pen');
+            updatePenUI();
+        });
+        document.getElementById('pen-blue').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.penColor = '#3b82f6';
+            state.isErasing = false;
+            setMode('pen');
+            updatePenUI();
+        });
+        document.getElementById('pen-eraser').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.isErasing = true;
+            setMode('pen');
+            updatePenUI();
+        });
+        document.getElementById('btn-clear-memo').addEventListener('click', (e) => {
+            e.stopPropagation();
+            memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height);
+        });
+
+        function updatePenUI() {
+            document.getElementById('pen-black').className = `pen-btn w-7 h-7 rounded-full bg-slate-800 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!state.isErasing && state.penColor === '#1e293b' ? 'ring-slate-800' : 'ring-transparent'}`;
+            document.getElementById('pen-red').className = `pen-btn w-7 h-7 rounded-full bg-rose-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!state.isErasing && state.penColor === '#f43f5e' ? 'ring-rose-500' : 'ring-transparent'}`;
+            document.getElementById('pen-blue').className = `pen-btn w-7 h-7 rounded-full bg-blue-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!state.isErasing && state.penColor === '#3b82f6' ? 'ring-blue-500' : 'ring-transparent'}`;
+            document.getElementById('pen-eraser').className = `h-8 px-2.5 ${state.isErasing ? 'bg-slate-300 text-slate-900' : 'bg-white text-slate-700'} hover:bg-slate-200 rounded-xl font-bold text-xs transition flex items-center gap-1 border border-slate-300 shrink-0`;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            renderGrid();
+            renderDashedBackground();
+            resetToInitialShape();
+            updatePenUI();
+            setMode('add');
+        });
+    </script>
+</body>
+</html>
